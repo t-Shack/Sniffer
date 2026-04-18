@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"net"
+	"net/url"
 	"os"
 	"strings"
 )
@@ -11,12 +13,22 @@ var suspiciousKeywords = []string{
 	"banking", "confirm", "password", "signin", "support",
 }
 
+func isIPBasedURL(rawURL string) bool {
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return false
+	}
+
+	host := parsed.Hostname()
+	return net.ParseIP(host) != nil
+}
+
 func checkURL(rawURL string) string {
 	lower := strings.ToLower(rawURL)
 
 	// Check 1: IP-based URL
 	// Phishing URLs often use raw IPs instead of domain names
-	if strings.Contains(lower, "http://1") || strings.Contains(lower, "http://2") {
+	if isIPBasedURL(rawURL) {
 		return "⚠️  SUSPICIOUS — IP-based URL detected"
 	}
 
@@ -37,7 +49,7 @@ func checkURL(rawURL string) string {
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Println("Usage: sniffer <url>")
+		fmt.Println("Usage: Sniffer <url>")
 		os.Exit(1)
 	}
 
