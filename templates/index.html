@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SNIFFER // URL Threat Analyser</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; overflow: hidden; background: #030f05; font-family: 'Courier New', monospace; }
+
+    .page { display: none; height: 100vh; flex-direction: column; background: #030f05; position: relative; overflow: hidden; }
+    .page.active { display: flex; }
+    canvas.bg { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0.13; pointer-events: none; z-index: 0; }
+    .z1 { position: relative; z-index: 1; display: flex; flex-direction: column; height: 100%; }
+
+    /* ── Shared nav ── */
+    .nav { flex-shrink: 0; display: flex; justify-content: space-between; align-items: center; padding: 14px 28px; border-bottom: 1px solid #0d3518; background: rgba(0,0,0,0.7); }
+    .logo { display: flex; align-items: center; gap: 10px; }
+    .logo-icon { width: 20px; height: 20px; border: 2px solid #00ff41; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+    .logo-dot { width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid #00ff41; background-color: #00ff41; }
+    .logo-name { color: #00ff41; font-size: 15px; font-weight: bold; letter-spacing: 0.12em; }
+    .logo-sub { color: #1a6b30; font-weight: normal; }
+    .nav-links { display: flex; gap: 20px; }
+    .nav-link { color: #1a6b30; font-size: 11px; letter-spacing: 0.08em; cursor: pointer; }
+    .nav-link:hover { color: #00ff41; }
+
+    /* ── Landing ── */
+    .hero { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 20px 28px; text-align: center; }
+    .hero-badge { border: 1px solid #0d3518; color: #1a6b30; font-size: 10px; letter-spacing: 0.15em; padding: 4px 14px; margin-bottom: 18px; display: inline-block; }
+    .hero-title { color: #00ff41; font-size: clamp(28px, 5vw, 48px); font-weight: bold; letter-spacing: 0.06em; line-height: 1.1; margin-bottom: 14px; }
+    .hero-sub { color: #1a6b30; font-size: 12px; letter-spacing: 0.04em; line-height: 1.9; margin-bottom: 30px; }
+    .cta-btn { background: #00ff41; color: #000; border: none; font-family: 'Courier New', monospace; font-size: 13px; font-weight: bold; letter-spacing: 0.15em; padding: 13px 36px; cursor: pointer; }
+    .cta-btn:hover { background: #00cc35; }
+
+    .feature-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; padding: 30px 28px; flex-shrink: 0; }
+    .feature-card { border: 1px solid #0d3518; padding: 16px; background: rgba(0,8,2,0.75); }
+    .f-icon { width: 32px; height: 32px; border: 1px solid #0d3518; display: flex; align-items: center; justify-content: center; margin-bottom: 10px; }
+    .f-icon svg { width: 16px; height: 16px; stroke: #00ff41; fill: none; stroke-width: 1.5; }
+    .f-title { color: #00ff41; font-size: 10px; letter-spacing: 0.1em; font-weight: bold; margin-bottom: 6px; }
+    .f-desc { color: #1a5c28; font-size: 10px; line-height: 1.7; }
+    .lp-footer { flex-shrink: 0; text-align: center; padding: 10px; border-top: 1px solid #0a1f0a; color: #0d3518; font-size: 9px; letter-spacing: 0.08em; background: rgba(0,0,0,0.5); }
+
+    /* ── Dashboard ── */
+    .db-nav-right { display: flex; align-items: center; gap: 16px; }
+    .db-clock { color: #00ff41; font-size: 13px; letter-spacing: 0.08em; }
+    .db-date { color: #1a6b30; font-size: 9px; letter-spacing: 0.06em; }
+    .db-badge { border: 1px solid #0d3518; color: #1a6b30; font-size: 9px; letter-spacing: 0.1em; padding: 2px 8px; }
+    .back-btn { color: #1a6b30; font-size: 13px; letter-spacing: 0.08em; cursor: pointer; border: 1px solid #0d3518; padding: 3px 12px; }
+    .back-btn:hover { color: #00ff41; border-color: #1a6b30; }
+
+    .db-body { flex: 1; overflow-y: auto; padding: 20px 44px 12px; display: flex; flex-direction: column; gap: 14px; min-height: 0; }
+    .db-body::-webkit-scrollbar { width: 3px; }
+    .db-body::-webkit-scrollbar-thumb { background: #0d3518; }
+
+    .db-status { text-align: center; }
+    .status-badge { display: inline-block; border: 1px solid #0d3518; color: #1a6b30; font-size: 12px; letter-spacing: 0.12em; padding: 3px 12px; margin-bottom: 10px; }
+    .await-text { color: #00ff41; font-size: 11px; letter-spacing: 0.1em; }
+
+    .scan-wrap { flex-shrink: 0; }
+    .scan-box { border: 1px solid #1a4a28; display: flex; background: rgba(0,4,0,0.65); }
+    .scan-icon { padding: 10px 14px; border-right: 1px solid #0d3518; display: flex; align-items: center; }
+    .scan-icon svg { width: 16px; height: 16px; stroke: #00ff41; fill: none; stroke-width: 1.5; }
+    .scan-input { flex: 1; background: transparent; border: none; outline: none; color: #00cc35; font-family: 'Courier New', monospace; font-size: 12px; padding: 10px 12px; letter-spacing: 0.04em; }
+    .scan-input::placeholder { color: #0d3518; }
+    .scan-btn { background: #00ff41; color: #000; border: none; font-family: 'Courier New', monospace; font-size: 11px; font-weight: bold; letter-spacing: 0.12em; padding: 10px 20px; cursor: pointer; flex-shrink: 0; }
+    .scan-btn:hover { background: #00cc35; }
+    .scan-btn:disabled { background: #0a2a10; color: #1a4a22; cursor: not-allowed; }
+    .scan-hint { color: #0d3518; font-size: 9px; letter-spacing: 0.06em; text-align: center; margin-top: 5px; }
+
+    /* ── Results ── */
+    .results { display: none; flex-direction: column; gap: 10px; }
+    .results.show { display: flex; }
+
+    .check-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .check-item { border: 1px solid #0d2010; padding: 15px 12px; background: rgba(0,3,0,0.8); opacity: 0; transition: opacity 0.4s; }
+    .check-item.visible { opacity: 1; }
+    .check-hdr { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+    .check-name { color: #1a5c28; font-size: 10px; letter-spacing: 0.1em; }
+    .check-status { font-size: 10px; letter-spacing: 0.06em; }
+    .check-detail { font-size: 13px; letter-spacing: 0.03em; }
+
+    .s-ok { color: #00ff41; }
+    .s-warn { color: #f5a623; }
+    .s-bad { color: #e24b4b; }
+    .s-scan { color: #1a6b30; }
+
+    .verdict-panel { border: 1px solid #1a3a1a; padding: 15px 16px; background: rgba(0,2,0,0.85); display: flex; justify-content: space-between; align-items: center; opacity: 0; transition: opacity 0.4s; }
+    .verdict-panel.visible { opacity: 1; }
+    .v-label { color: #0d4a1c; font-size: 10px; letter-spacing: 0.12em; margin-bottom: 3px; }
+    .v-text { font-size: 15px; letter-spacing: 0.04em; }
+    .v-score { font-size: 25px; font-weight: bold; }
+
+    .stat-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; opacity: 0; transition: opacity 0.4s; }
+    .stat-row.visible { opacity: 1; }
+    .stat-item { border: 1px solid #0d2010; padding: 12px; background: rgba(0,3,0,0.8); text-align: center; }
+    .stat-num { color: #00ff41; font-size: 20px; font-weight: bold; }
+    .stat-lbl { color: #0d4a1c; font-size: 10px; letter-spacing: 0.06em; margin-top: 2px; }
+
+    .cursor { display: inline-block; width: 8px; height: 16px; background: currentColor; animation: blink 1s step-end infinite; vertical-align: text-bottom; margin-left: 2px; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+    /* ── Footer ── */
+    .db-footer { flex-shrink: 0; display: flex; justify-content: space-between; align-items: center; padding: 8px 20px; border-top: 1px solid #0a1f0a; background: rgba(0,0,0,0.85); }
+    .fkeys { display: flex; gap: 20px; }
+    .fkey { color: #0d4a1c; font-size: 9px; letter-spacing: 0.06em; }
+    .fkey span { color: #00aa28; }
+    .net-status { display: flex; gap: 14px; }
+    .ns { color: #0d4a1c; font-size: 9px; letter-spacing: 0.06em; }
+    .ns span { color: #00ff41; }
+  </style>
+</head>
+<body>
+
+<!-- ── Landing page ─────────────────────────────────────────────────────── -->
+<div id="landing" class="page active">
+  <canvas class="bg" id="c1"></canvas>
+  <div class="z1">
+    <nav class="nav">
+      <div class="logo">
+        <div class="logo-icon"><div class="logo-dot"></div></div>
+        <div class="logo-name">SNIFFER <span class="logo-sub">// url threat analyser</span></div>
+      </div>
+      <div class="nav-links">
+        <span class="nav-link">docs</span>
+        <span class="nav-link">|</span>
+        <span class="nav-link">about</span>
+      </div>
+    </nav>
+
+    <div class="hero">
+      <div class="hero-badge">[ v2.0 // online ]</div>
+      <div class="hero-title">ANALYZE. DETECT.<br>SECURE.</div>
+      <div class="hero-sub">Ultra-fast, terminal-grade threat detection for suspicious URLs.<br>No-code. Just paste and scan.</div>
+      <button class="cta-btn" onclick="goToDash()">[ GET STARTED ]</button>
+    </div>
+
+    <div class="feature-grid">
+      <div class="feature-card">
+        <div class="f-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><polyline points="12 6 12 12 16 14"/></svg></div>
+        <div class="f-title">REAL-TIME THREAT INTEL</div>
+        <div class="f-desc">Instant analysis against global blacklists and phishing databases via VirusTotal's 70+ engines.</div>
+      </div>
+      <div class="feature-card">
+        <div class="f-icon"><svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg></div>
+        <div class="f-title">HEURISTIC DETECTION</div>
+        <div class="f-desc">Local rule-based engine checks IP patterns, suspicious keywords, and URL anomalies — works offline.</div>
+      </div>
+      <div class="feature-card">
+        <div class="f-icon"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
+        <div class="f-title">ZERO DATA STORAGE</div>
+        <div class="f-desc">No accounts, no logs, no tracking. Your URLs are scanned and immediately discarded.</div>
+      </div>
+    </div>
+
+    <div class="lp-footer">SNIFFER v2.0 // built with Go + VirusTotal API // 2026</div>
+  </div>
+</div>
+
+<!-- ── Dashboard ────────────────────────────────────────────────────────── -->
+<div id="dashboard" class="page">
+  <canvas class="bg" id="c2"></canvas>
+  <div class="z1">
+    <nav class="nav">
+      <div class="logo">
+        <div class="logo-icon"><div class="logo-dot"></div></div>
+        <div class="logo-name" style="font-size:13px">SNIFFER</div>
+        <div class="db-badge">v2.0</div>
+      </div>
+      <div class="db-nav-right">
+        <div style="text-align:right">
+          <div class="db-date" id="db-date"></div>
+          <div class="db-clock" id="db-clock"></div>
+        </div>
+        <div class="back-btn" onclick="goToLanding()">[ HOME ]</div>
+      </div>
+    </nav>
+
+    <div class="db-body">
+      <div class="db-status">
+        <div class="status-badge">SCAN TERMINAL // ACTIVE</div><br>
+        <div class="await-text" id="await-text">awaiting target acquisition...</div>
+      </div>
+
+      <div class="scan-wrap">
+        <div class="scan-box">
+          <div class="scan-icon">
+            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          </div>
+          <input class="scan-input" id="url-input" placeholder="enter target url for security analysis >_" />
+          <button class="scan-btn" id="scan-btn" onclick="runScan()">INITIATE SCAN</button>
+        </div>
+        <div class="scan-hint">supports http/https · ip addresses · domain names</div>
+      </div>
+
+      <div class="results" id="results">
+        <div class="check-grid">
+          <div class="check-item" id="c-ip">
+            <div class="check-hdr">
+              <span class="check-name">IP-BASED URL</span>
+              <span class="check-status s-scan" id="s-ip">scanning...</span>
+            </div>
+            <div class="check-detail s-scan" id="d-ip">running check</div>
+          </div>
+          <div class="check-item" id="c-kw">
+            <div class="check-hdr">
+              <span class="check-name">KEYWORD MATCH</span>
+              <span class="check-status s-scan" id="s-kw">scanning...</span>
+            </div>
+            <div class="check-detail s-scan" id="d-kw">running check</div>
+          </div>
+          <div class="check-item" id="c-len">
+            <div class="check-hdr">
+              <span class="check-name">URL LENGTH</span>
+              <span class="check-status s-scan" id="s-len">scanning...</span>
+            </div>
+            <div class="check-detail s-scan" id="d-len">running check</div>
+          </div>
+          <div class="check-item" id="c-vt">
+            <div class="check-hdr">
+              <span class="check-name">VIRUSTOTAL</span>
+              <span class="check-status s-scan" id="s-vt">querying...</span>
+            </div>
+            <div class="check-detail s-scan" id="d-vt">contacting api</div>
+          </div>
+        </div>
+
+        <div class="verdict-panel" id="verdict-panel">
+          <div>
+            <div class="v-label">FINAL VERDICT</div>
+            <div class="v-text" id="v-text">analyzing...<span class="cursor"></span></div>
+          </div>
+          <div style="text-align:right">
+            <div class="v-label">RISK LEVEL</div>
+            <div class="v-score" id="v-score">—</div>
+          </div>
+        </div>
+
+        <div class="stat-row" id="stat-row">
+          <div class="stat-item">
+            <div class="stat-num" id="st-mal">—</div>
+            <div class="stat-lbl">ENGINES FLAGGED</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-num" id="st-clean">—</div>
+            <div class="stat-lbl">CLEAN VERDICT</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-num">70+</div>
+            <div class="stat-lbl">TOTAL SCANNERS</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="db-footer">
+      <div class="fkeys">
+        <div class="fkey"><span>[F2]</span> CLEAR</div>
+        <div class="fkey"><span>[F5]</span> RESCAN</div>
+        <div class="fkey"><span>[F10]</span> HOME</div>
+      </div>
+      <div class="net-status">
+        <div class="ns">NETWORK: <span>ONLINE</span></div>
+        <div class="ns">VT API: <span>LINKED</span></div>
+        <div class="ns">ENGINE: <span>ACTIVE</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Matrix rain ──────────────────────────────────────────────────────────────
+function initMatrix(id) {
+  const c = document.getElementById(id);
+  if (!c) return;
+  const ctx = c.getContext('2d');
+  c.width = window.innerWidth;
+  c.height = window.innerHeight;
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%&|><[]{}';
+  const fs = 11;
+  let drops = Array(Math.floor(c.width / fs)).fill(1);
+  function draw() {
+    ctx.fillStyle = 'rgba(0,0,0,0.05)';
+    ctx.fillRect(0, 0, c.width, c.height);
+    ctx.font = fs + 'px monospace';
+    drops.forEach((d, i) => {
+      ctx.globalAlpha = Math.random() * 0.5 + 0.1;
+      ctx.fillStyle = Math.random() > 0.92 ? '#fff' : '#00ff41';
+      ctx.fillText(chars[Math.floor(Math.random() * chars.length)], i * fs, d * fs);
+      if (d * fs > c.height && Math.random() > 0.975) drops[i] = 0;
+      drops[i]++;
+    });
+    ctx.globalAlpha = 1;
+  }
+  return setInterval(draw, 55);
+}
+let m1 = initMatrix('c1'), m2 = null;
+
+// ── Navigation ───────────────────────────────────────────────────────────────
+function goToDash() {
+  document.getElementById('landing').classList.remove('active');
+  document.getElementById('dashboard').classList.add('active');
+  if (!m2) m2 = initMatrix('c2');
+}
+function goToLanding() {
+  document.getElementById('dashboard').classList.remove('active');
+  document.getElementById('landing').classList.add('active');
+  resetScan();
+}
+
+// ── Clock ────────────────────────────────────────────────────────────────────
+const DAYS = ['SUN','MON','TUE','WED','THU','FRI','SAT'];
+const MONTHS = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+function tickClock() {
+  const n = new Date();
+  const t = document.getElementById('db-clock');
+  const d = document.getElementById('db-date');
+  if (t) t.textContent = [n.getHours(), n.getMinutes(), n.getSeconds()].map(x => String(x).padStart(2,'0')).join(':');
+  if (d) d.textContent = DAYS[n.getDay()] + ' ' + MONTHS[n.getMonth()] + ' ' + n.getDate() + ' ' + n.getFullYear() + ' UTC';
+}
+tickClock();
+setInterval(tickClock, 1000);
+
+// ── Scan logic ───────────────────────────────────────────────────────────────
+function resetScan() {
+  document.getElementById('results').classList.remove('show');
+  document.getElementById('url-input').value = '';
+  document.getElementById('scan-btn').disabled = false;
+  document.getElementById('await-text').textContent = 'awaiting target acquisition...';
+  ['c-ip','c-kw','c-len','c-vt'].forEach(id => document.getElementById(id).classList.remove('visible'));
+  document.getElementById('verdict-panel').classList.remove('visible');
+  document.getElementById('stat-row').classList.remove('visible');
+}
+
+function applyFlag(el, flag) {
+  el.className = el.className.replace(/s-\w+/g, '') + ' s-' + flag;
+}
+
+function revealCheck(cardId, statusId, detailId, flag, statusText, detailText) {
+  document.getElementById(cardId).classList.add('visible');
+  const s = document.getElementById(statusId);
+  const d = document.getElementById(detailId);
+  s.textContent = statusText;
+  applyFlag(s, flag);
+  d.textContent = detailText;
+  applyFlag(d, flag);
+}
+
+async function runScan() {
+  const rawURL = document.getElementById('url-input').value.trim();
+  if (!rawURL) {
+    document.getElementById('url-input').placeholder = '// please enter a url first';
+    return;
+  }
+
+  document.getElementById('scan-btn').disabled = true;
+  document.getElementById('await-text').textContent = '// initiating threat analysis...';
+  document.getElementById('results').classList.add('show');
+
+  // Reset all check cards to scanning state
+  ['c-ip','c-kw','c-len','c-vt'].forEach(id => document.getElementById(id).classList.remove('visible'));
+  document.getElementById('verdict-panel').classList.remove('visible');
+  document.getElementById('stat-row').classList.remove('visible');
+  ['s-ip','s-kw','s-len','s-vt'].forEach(id => { const el = document.getElementById(id); el.textContent = 'scanning...'; el.className = 'check-status s-scan'; });
+  ['d-ip','d-kw','d-len','d-vt'].forEach(id => { const el = document.getElementById(id); el.textContent = 'running check'; el.className = 'check-detail s-scan'; });
+  document.getElementById('s-vt').textContent = 'querying...';
+  document.getElementById('d-vt').textContent = 'contacting virustotal api';
+
+  try {
+    // Fetch real results from Go server
+    const resp = await fetch('/check', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: rawURL })
+    });
+    const data = await resp.json();
+
+    if (data.error) {
+      document.getElementById('await-text').textContent = '// error: ' + data.error;
+      document.getElementById('scan-btn').disabled = false;
+      return;
+    }
+
+    document.getElementById('await-text').textContent = '// analysis complete — revealing results...';
+
+    // Stagger reveal with real server data
+    setTimeout(() => {
+      const c = data.ip_check;
+      revealCheck('c-ip', 's-ip', 'd-ip', c.flag, c.passed ? 'PASSED' : 'FLAGGED', c.detail);
+    }, 500);
+
+    setTimeout(() => {
+      const c = data.keyword_check;
+      revealCheck('c-kw', 's-kw', 'd-kw', c.flag, c.passed ? 'PASSED' : 'FLAGGED', c.detail);
+    }, 1000);
+
+    setTimeout(() => {
+      const c = data.length_check;
+      revealCheck('c-len', 's-len', 'd-len', c.flag, c.passed ? 'PASSED' : 'FLAGGED', c.detail);
+    }, 1500);
+
+    setTimeout(() => {
+      revealCheck('c-vt', 's-vt', 'd-vt', data.vt_flag,
+        data.vt_flagged > 0 ? data.vt_flagged + ' FLAGGED' : 'CLEAN', data.vt_detail);
+    }, 2000);
+
+    setTimeout(() => {
+      // Verdict
+      const vp = document.getElementById('verdict-panel');
+      const vt = document.getElementById('v-text');
+      const vs = document.getElementById('v-score');
+      const riskClass = { HIGH: 's-bad', MEDIUM: 's-warn', LOW: 's-ok' }[data.risk] || 's-ok';
+      vt.className = 'v-text ' + riskClass;
+      vt.innerHTML = data.verdict + '<span class="cursor"></span>';
+      vs.className = 'v-score ' + riskClass;
+      vs.textContent = data.risk;
+      vp.classList.add('visible');
+
+      // Stats
+      document.getElementById('st-mal').textContent = data.vt_flagged;
+      document.getElementById('st-clean').textContent = data.vt_clean;
+      document.getElementById('stat-row').classList.add('visible');
+
+      const finalText = data.risk === 'HIGH' ? '// threat detected — do not visit this url'
+        : data.risk === 'MEDIUM' ? '// suspicious url — proceed with caution'
+        : '// analysis complete — target appears safe';
+      document.getElementById('await-text').textContent = finalText;
+      document.getElementById('scan-btn').disabled = false;
+    }, 2400);
+
+  } catch (e) {
+    document.getElementById('await-text').textContent = '// network error — is the server running?';
+    document.getElementById('scan-btn').disabled = false;
+  }
+}
+
+document.getElementById('url-input').addEventListener('keydown', e => { if (e.key === 'Enter') runScan(); });
+document.addEventListener('keydown', e => {
+  if (e.key === 'F2') { e.preventDefault(); resetScan(); }
+  if (e.key === 'F5') { e.preventDefault(); runScan(); }
+  if (e.key === 'F10') { e.preventDefault(); goToLanding(); }
+});
+</script>
+</body>
+</html>
