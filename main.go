@@ -305,12 +305,16 @@ func startServer() {
 	}
 	http.HandleFunc("/", serveIndex)
 	http.HandleFunc("/check", handleCheck)
-	fmt.Println("╔══════════════════════════════════╗")
-	fmt.Println("║  SNIFFER // URL Threat Analyser  ║")
-	fmt.Println("║  running at http://localhost:8080 ║")
-	fmt.Println("║  Ctrl+C to stop                  ║")
-	fmt.Println("╚══════════════════════════════════╝")
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+	fmt.Printf("╔═══════════════════════════════════╗\n")
+	fmt.Printf("║  SNIFFER // URL Threat Analyser   ║\n")
+	fmt.Printf("║  running at http://localhost:%s ║\n", port)
+	fmt.Printf("║  Ctrl+C to stop                   ║\n")
+	fmt.Printf("╚═══════════════════════════════════╝\n")
+	log.Fatal(http.ListenAndServe(":"+port, nil))
 }
 
 func main() {
